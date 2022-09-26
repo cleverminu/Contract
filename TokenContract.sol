@@ -245,7 +245,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         require((msg.sender == Holding_CONTRACT) || (msg.sender == ContractAddress) , "only owner");
         balances[from] = safeSub(balances[from], amount);
         balances[to] = safeAdd(balances[to], amount);
-        //emit Transfer(from, to, amount);
+        emit Transfer(from, to, amount);
         return true;
     }
     function transferFrom(address from, address to, uint tokens) public returns (bool success)
