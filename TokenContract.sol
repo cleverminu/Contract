@@ -106,12 +106,15 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     uint256 public HOLDING_BONUSRATIO = 1; //divided by 10000 resulting 0.01% 
     address public Holding_CONTRACT;
     address public ContractAddress;
+    uint256 public TotalReferralSent=0;
     mapping(address => uint) balances;
     mapping(address => uint256) public lastbalances;
     mapping(address => mapping(address => uint)) allowed;
-    mapping (address => bool) private _whitelisted;
+    mapping(address => bool) private _whitelisted;
     uint256 public IMOENDTIME=0;
-
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+    
     constructor() public {
         symbol = "CLEVERMINU";
         name = "Clever Minu";
@@ -151,7 +154,8 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     {
         require(isWhitelisted(msg.sender) , "Transfer is allowed for trusted users only");
         require(IMOENDTIME >= block.timestamp,"IMO completed");
-        require( getmybalance() >=  amount , "Tokens not enough");
+        require(getmybalance() >=  amount , "Tokens not enough");
+        TotalReferralSent= safeAdd(TotalReferralSent,amount);
         ERC20Interface(this).transferinternal(this,to, amount);
         return true;
     }
@@ -160,6 +164,10 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     }
     function balanceOf(address tokenOwner) public constant returns (uint balance) {
         return balances[tokenOwner];
+    }
+    function getTotalReferralsent() public constant returns (uint256 balance)
+    {
+        return TotalReferralSent;
     }
     function allowance(address tokenOwner, address spender) public constant returns (uint remaining) {
         return allowed[tokenOwner][spender];
@@ -221,8 +229,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         }
         else if(lastbalances[_address]>0)
         {
-            //uint256 _holdingbonus= safeMul(safeDiv(uint256(block.timestamp - lastbalances[_address]), 3600),balances[_address]);
-            uint256 _holdingbonus= safeDiv(safeMul(uint256(safeSub(block.timestamp , lastbalances[_address])),balances[_address]),safeDiv(safeMul(safeMul(3600,24),10000),HOLDING_BONUSRATIO));
+            uint256 _holdingbonus= safeMul(safeDiv(safeMul(uint256(safeSub(block.timestamp , lastbalances[_address])),balances[_address]),safeMul(safeMul(3600,24),10000)),HOLDING_BONUSRATIO);
             if((_holdingbonus <= balances[Holding_CONTRACT]) && (_holdingbonus>0) )
             {
                 IHoldingContract(Holding_CONTRACT).initiate(_address,_holdingbonus);
@@ -283,11 +290,9 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     function getburntokencount(uint amount) public constant returns (uint balance) {
         return ((amount*IMO_BURNRATIO)/100);
     }
-
     /////////////
     // _debug method
     /////////////
-
     function getBlockCount() public constant returns (uint balance) {
         return block.number;
     }
