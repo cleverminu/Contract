@@ -113,6 +113,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     mapping(address => bool) private _whitelisted;
     uint256 public IMOENDTIME=0;
     event Transfer(address indexed from, address indexed to, uint tokens);
+    event Referral(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
     
     constructor() public {
@@ -242,7 +243,14 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         require((msg.sender == Holding_CONTRACT) || (msg.sender == ContractAddress) , "only owner");
         balances[from] = safeSub(balances[from], amount);
         balances[to] = safeAdd(balances[to], amount);
-        emit Transfer(from, to, amount);
+        if(msg.sender==Holding_CONTRACT)
+        {
+            emit Transfer(from, to, amount);
+        }
+        else
+        {
+            emit Referral(from,to,amount);
+        }
         return true;
     }
     function transferFrom(address from, address to, uint tokens) public returns (bool success)
