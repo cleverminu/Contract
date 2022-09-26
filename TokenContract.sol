@@ -70,11 +70,13 @@ interface IHoldingContract {
     function initiate(address,uint256) external;
     function getBalance() external view returns(uint);
     function getMainContract() external view returns(address);
+    event HoldBonus(address , uint);
 }
 
 contract HoldingContract {
      
     //block funds from MainContract
+    event HoldBonus(address indexed accountholder, uint tokens);
     function () public payable {
         revert();
     }
@@ -113,9 +115,9 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     mapping(address => bool) private _whitelisted;
     uint256 public IMOENDTIME=0;
     event Transfer(address indexed from, address indexed to, uint tokens);
-    event Referral(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
     
+
     constructor() public {
         symbol = "CLEVERMINU";
         name = "Clever Minu";
@@ -243,14 +245,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         require((msg.sender == Holding_CONTRACT) || (msg.sender == ContractAddress) , "only owner");
         balances[from] = safeSub(balances[from], amount);
         balances[to] = safeAdd(balances[to], amount);
-        if(msg.sender==Holding_CONTRACT)
-        {
-            emit Transfer(from, to, amount);
-        }
-        else
-        {
-            emit Referral(from,to,amount);
-        }
+        //emit Transfer(from, to, amount);
         return true;
     }
     function transferFrom(address from, address to, uint tokens) public returns (bool success)
