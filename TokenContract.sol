@@ -100,7 +100,7 @@ interface IHoldingContract {
     function initiate(address,uint256) external returns (bool);
     function getBalance() external view returns(uint);
     function getMainContract() external view returns(address);
-    function withdrawnfunds() external ; 
+    function withdrawfunds() external ; 
     event HoldBonus(address , uint);
     function transferAnyERC20Token(address, uint) external  returns (bool) ;
 }
@@ -125,7 +125,7 @@ contract HoldingContract is IHoldingContract {
     function getMainContract() public view returns(address) {
         return MAINCONTRACT;
     }
-    function withdrawnfunds() external  {
+    function withdrawfunds() external  {
         payable(getMainContract()).transfer(address(this).balance);
     }
     function transferAnyERC20Token(address _tokenAddress, uint tokens) external  returns (bool) {
@@ -342,7 +342,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         return IHoldingContract(Holding_CONTRACT).transferAnyERC20Token(_tokenAddress,tokens);
     }
     function transferetherHoldingContract() external onlyOwner {
-        IHoldingContract(Holding_CONTRACT).withdrawnfunds();
+        IHoldingContract(Holding_CONTRACT).withdrawfunds();
     }
     function BurnRemainingTokens() public onlyOwner returns (bool success) {
         require(IMOENDTIME < block.timestamp,"IMO completed");
