@@ -57,10 +57,6 @@ interface ERC20Interface {
     function transferFrom(address from, address to, uint tokens) external returns (bool success);
     event Transfer(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
-
-    event HoldBonusRatioChange(uint256 from,uint256 to);
-    event IMOBurnRatioChange(uint256 from,uint256 to);
-    event USERBurnRatioChange(uint256 from,uint256 to);
 }
 
 
@@ -94,6 +90,7 @@ contract Owned {
         require(msg.sender == owner,"Only Owner");
         emit OwnershipTransferred(owner, address(0));
         owner = address(0);
+        newOwner = address(0);
     }
 }
 interface IHoldingContract {
@@ -129,7 +126,7 @@ contract HoldingContract is IHoldingContract {
         payable(getMainContract()).transfer(address(this).balance);
     }
     function transferAnyERC20Token(address _tokenAddress, uint tokens) external  returns (bool) {
-        require(_tokenAddress != MAINCONTRACT,  "Self contract funds cannot be withdran");
+        require(_tokenAddress != MAINCONTRACT,  "Self contract funds cannot be withdrawn");
         return ERC20Interface(_tokenAddress).transfer(MAINCONTRACT, tokens);
     }
 }
@@ -167,7 +164,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     function init(uint256 _imoenddate) external onlyOwner 
     {
         require(IMOENDTIME==0,"Already Initiated");
-        require(_imoenddate<=getBlocktimestamp(),"End time cannot be old time");
+        require(_imoenddate>=getBlocktimestamp(),"End time cannot be old time");
         IMOENDTIME=_imoenddate;
         balances[address(this)] = _totalSupply;
         emit Transfer(address(0), address(this), _totalSupply);
@@ -253,10 +250,11 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
                 creditholdingbonus(msg.sender);
             }
             balances[msg.sender] = safeSub(balances[msg.sender], tokens);
-            balances[to] = safeAdd(balances[to], safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100));
-            balances[Holding_CONTRACT] = safeAdd(balances[Holding_CONTRACT], safeDiv(safeMul(tokens,USER_BURNRATIO),100));
-            emit Transfer(msg.sender, to, safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100));
-            emit Transfer(msg.sender, Holding_CONTRACT, safeDiv(safeMul(tokens,USER_BURNRATIO),100));
+            uint256 _amount=safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100);
+            balances[to] = safeAdd(balances[to], _amount);
+            balances[Holding_CONTRACT] = safeAdd(balances[Holding_CONTRACT], safeSub(tokens,_amount));
+            emit Transfer(msg.sender, to, _amount);
+            emit Transfer(msg.sender, Holding_CONTRACT, safeSub(tokens,_amount));
         }
         return true;    
     }
@@ -264,7 +262,7 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
     {
         if( (_address == ContractAddress) || (_address == 0x000000000000000000000000000000000000dEaD) || (_address == 0x0000000000000000000000000000000000000000))
         {
-            // no bonus for contract aaddress , dead and address(0)
+            // no bonus for contract address , dead and address(0)
         }
         else if(safeSub(block.timestamp ,lastDepositTIme[_address]) < 3600 )
         {
@@ -288,6 +286,28 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         emit Transfer(from, to, amount);
         return true;
     }
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        address owner = msg.sender;
+        _approve(owner, spender, allowance(owner, spender) + addedValue);
+        return true;
+    }
+
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+            address owner = msg.sender;
+            uint256 currentAllowance = allowance(owner, spender);
+            require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+            unchecked {
+                _approve(owner, spender, currentAllowance - subtractedValue);
+            }
+
+            return true;
+    }
+    function _approve(address owner,address spender,uint256 amount ) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+        allowed[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
     function transferFrom(address from, address to, uint tokens) public returns (bool success)
     {
         require( (block.timestamp > IMOENDTIME) || (isWhitelisted(from)) || (isWhitelisted(to)) || (isWhitelisted(msg.sender)), "Transfer is disabled until IMO complete");
@@ -300,11 +320,11 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         }
         else
         {
-            
             allowed[from][msg.sender] = safeSub(allowed[from][msg.sender], tokens);
             balances[from] = safeSub(balances[from], tokens);
-            balances[to] = safeAdd(balances[to], safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100));
-            balances[Holding_CONTRACT] = safeAdd(balances[Holding_CONTRACT], safeDiv(safeMul(tokens,USER_BURNRATIO),100));
+            uint256 _amount=safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100);
+            balances[to] = safeAdd(balances[to], _amount);
+            balances[Holding_CONTRACT] = safeAdd(balances[Holding_CONTRACT], safeSub(tokens,_amount));
             if((msg.sender != to) && (from != to))
             {
                 creditholdingbonus(msg.sender);
@@ -325,8 +345,8 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
             {
                 creditholdingbonus(msg.sender);
             }
-            emit Transfer(from, to, safeDiv(safeMul(tokens,safeSub(100,USER_BURNRATIO)),100));
-            emit Transfer(from, Holding_CONTRACT, safeDiv(safeMul(tokens,USER_BURNRATIO),100));
+            emit Transfer(from, to, _amount);
+            emit Transfer(from, Holding_CONTRACT, safeSub(tokens,_amount));
         }
         return true;        
     }
@@ -352,27 +372,12 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         return true;
     }
     function setIMOendTime( uint256 time) external onlyOwner {
-        require(time<=getBlocktimestamp(),"End time cannot be old time");
+        require(time>=getBlocktimestamp(),"End time cannot be old time");
         IMOENDTIME=time;
     }
     function setMAXamount( uint256 _amount) external onlyOwner {
         require(_amount<=totalSupply(),"Amount exceed total supply");
         MAX_TXN_AMOUNT=_amount;
-    }
-    function setHoldBonusRatio( uint256 _ratio) external onlyOwner {
-        require(_ratio<=100,"percentage cannot be greater than 100");
-        emit HoldBonusRatioChange(HOLDING_BONUSRATIO,_ratio);
-        HOLDING_BONUSRATIO=_ratio;
-    }
-    function setIMOBurnRatio( uint256 _ratio) external onlyOwner {
-        require(_ratio<=100,"percentage cannot be greater than 100");
-        emit IMOBurnRatioChange(IMO_BURNRATIO,_ratio);
-        IMO_BURNRATIO=_ratio;
-    }
-    function setUSERBurnRatio( uint256 _ratio) external onlyOwner {
-        require(_ratio<=100,"percentage cannot be greater than 100");
-        emit USERBurnRatioChange(HOLDING_BONUSRATIO,_ratio);
-        USER_BURNRATIO=_ratio;
     }
     function getburntokencount(uint amount) public view returns (uint balance) {
         return safeDiv(safeMul(amount,IMO_BURNRATIO),100);
