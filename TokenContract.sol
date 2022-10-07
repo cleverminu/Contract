@@ -81,7 +81,7 @@ contract Owned {
         _;
     }
     function transferOwnership(address _newOwner) public onlyOwner {
-        require(newOwner != address(0),"address(0) not allowed");
+        require(_newOwner != address(0),"address(0) not allowed");
         newOwner = _newOwner;
     }
     function acceptOwnership() public {
@@ -183,10 +183,10 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         require(IMOENDTIME >= block.timestamp,"IMO completed");
         require(amount <= MAX_TXN_AMOUNT,"Max limit reached");
         require( getmybalance() >=  safeAdd(getburntokencount(amount),amount) , "Tokens not enough");
-        ERC20Interface(this).transfer(to, amount);
+        bool _status=ERC20Interface(this).transfer(to, amount);
         if(IMO_BURNRATIO>0)
             ERC20Interface(this).transfer(0x000000000000000000000000000000000000dEaD, getburntokencount(amount));
-        return true;
+        return _status;
     }
     function IMOreferral(address to, uint amount) external returns (bool success)
     {
@@ -195,8 +195,8 @@ contract CleverMinu is ERC20Interface, Owned, SafeMath {
         require(amount <= MAX_TXN_AMOUNT,"Max limit reached");
         require(getmybalance() >=  amount , "Tokens not enough");
         TotalReferralSent= safeAdd(TotalReferralSent,amount);
-        ERC20Interface(address(this)).transferinternal(address(this),to, amount);
-        return true;
+        bool _status=ERC20Interface(address(this)).transferinternal(address(this),to, amount);
+        return _status;
     }
     function getmybalance() public view returns (uint balance) {
         return balances[address(this)];
